@@ -5,7 +5,7 @@ var dstu4145_lib = require('./dstu4145');
 var asn1_lib = require('../asn1EncDec/asn1encdec');
 
 function performSignTest(dstuObj, param_D, param_H, param_E, param_R, param_S) {
-  var keyPair = dstuObj.generateKey(param_D);
+  var keyPair = dstuObj.generateKeyPair(param_D);
   var result = dstuObj.fixedSign(keyPair.privKey, param_H, param_E);
   console.log(result);
 
@@ -75,7 +75,7 @@ function performTestSignatureVerify(curve) {
     var dstuObj = new dstu4145_lib("DSTU4145_" + curve);
 
     var hashHex = "3467546892126543236934675468921265432369ff77aaccddeeff99"
-    var keyPair = dstuObj.generateKey();
+    var keyPair = dstuObj.generateKeyPair();
     var result = dstuObj.sign(keyPair.privKey, hashHex);
     var encodedSignature = asn1_lib.encodeSignature(dstuObj.getKeyBytes(), result.r, result.s);
     console.log(encodedSignature);

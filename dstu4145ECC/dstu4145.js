@@ -121,7 +121,7 @@ DSTU4145.prototype.checkPrivateKey = function (privFieldNumber) {
   return true;
 };
 
-DSTU4145.prototype.generateKey = function (privScalarHex) {
+DSTU4145.prototype.generateKeyPair = function (privScalarHex) {
   var privKeyCheck = false;
   var privFieldNumber;
   if (typeof privScalarHex === 'undefined') {
