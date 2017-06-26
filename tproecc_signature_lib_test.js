@@ -57,14 +57,20 @@ var example4 = {
 
 function testNIST() {
     tProSign.validatePublicKey(example3.pubKey.curveType, example3.pubKey.keyValue, example3.pop.popAlg, example3.pop.popInput, example3.pop.popResult);
-
-    var keys = tProSign.generateKeyPair("NIST_P256");
     var digest = "c962d174df057264b67a5fe7124387a6daa6fb665e0d6f6ebef29987877737b0";
     var result = tProSign.verifySignature(digest, example4.signature.curveType, example3.pubKey.keyValue, example4.signature.signatureValue);
 
-    tProSign.signDigest("NIST_P256", "ASDF", digest, keys.priv);
-  
-    console.log("nist verify result:"+result);
+    for (var i = 0; i < 200; i++) {
+        console.log("iter:" + i);
+        var keys = tProSign.generateKeyPair("NIST_P256");
+        tProSign.validatePublicKey("NIST_P256", keys.pub, example3.pop.popAlg, example3.pop.popInput, example3.pop.popResult);
+
+        var sign = tProSign.signDigest("NIST_P256", "SHA3_512", digest, keys.priv);
+        console.log(sign);
+        result = tProSign.verifySignature(digest, "NIST_P256", keys.pub, sign);
+    }
+
+    console.log("nist verify result:" + result);
 }
 
 

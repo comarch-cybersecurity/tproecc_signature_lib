@@ -15,6 +15,10 @@ function ASN1EncDec() {
 
 }
 
+ASN1EncDec._isHexNumber = function (str) {
+    return /^([0-9A-Fa-f][0-9A-Fa-f])+$/.test(str);
+};
+
 ASN1EncDec.decodePublicKey = function (keyBytes, encodedPublicKeyHex) {
     var publicKey = new Buffer(encodedPublicKeyHex, "hex");
     if (publicKey.length === 0) throw new ASN1EncDecException("decodePublicKey - encodedPublicKeyHex is not hex string");
@@ -70,7 +74,7 @@ ASN1EncDec.decodeSignature = function (keyBytes, encodedSignatureHex) {
 ASN1EncDec._convertASNSignatureParam = function (keyBytes, signParam) {
     // add leading zeros
 
-     if (signParam.length > keyBytes) {
+    if (signParam.length > keyBytes) {
         throw new Error("invalid signature parameter size");
     }
 
@@ -82,9 +86,11 @@ ASN1EncDec._convertASNSignatureParam = function (keyBytes, signParam) {
         hexParam = "00" + hexParam; // add one byte prefix for negative number 
     }
     return "02" + ASN1EncDec._addASNLenPrefix(hexParam);
-}
+};
 
 ASN1EncDec._addASNLenPrefix = function (dataHex) {
+    if (dataHex.length % 2 === 1)
+        throw new Error("ASM1EncDec internal error dataHex len is not even");
     var lenHex = (dataHex.length / 2);
     lenHex = lenHex.toString(16);
     if (lenHex.length === 1) {
@@ -94,10 +100,19 @@ ASN1EncDec._addASNLenPrefix = function (dataHex) {
 };
 
 ASN1EncDec.encodeSignature = function (keyBytes, rHex, sHex) {
+    // add leading 0 is odd hex string
+    if (rHex.length % 2 === 1) rHex = "0" + rHex;
+    if (sHex.length % 2 === 1) sHex = "0" + sHex;
+
+    if (!this._isHexNumber(rHex))
+        throw new ASN1EncDecException("encodeSignature - invalid hex number:" + rHex);
+    if (!this._isHexNumber(sHex))
+        throw new ASN1EncDecException("encodeSignature - invalid hex number:" + sHex);
+
     var r = new Buffer(rHex, 'hex');
     var s = new Buffer(sHex, 'hex');
     return "30" + ASN1EncDec._addASNLenPrefix(ASN1EncDec._convertASNSignatureParam(keyBytes, r) +
         ASN1EncDec._convertASNSignatureParam(keyBytes, s));
-}
+};
 
 module.exports = ASN1EncDec;

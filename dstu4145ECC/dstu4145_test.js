@@ -74,7 +74,7 @@ function performTestSignatureVerify(curve) {
     console.log("Test sign verify " + curve + ":" + (i + 1));
     var dstuObj = new dstu4145_lib("DSTU4145_" + curve);
 
-    var hashHex = "3467546892126543236934675468921265432369ff77aaccddeeff99"
+    var hashHex = "3467546892126543236934675468921265432369ff77aaccddeeff99";
     var keyPair = dstuObj.generateKeyPair();
     var result = dstuObj.sign(keyPair.privKey, hashHex);
     var encodedSignature = asn1_lib.encodeSignature(dstuObj.getKeyBytes(), result.r, result.s);

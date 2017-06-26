@@ -13,16 +13,13 @@ function DSTU4145Exception(sMessage) {
 DSTU4145Exception.prototype = Object.create(Error.prototype);
 DSTU4145Exception.prototype.constructor = DSTU4145Exception;
 
-
-
-
-
 function DSTU4145(curve_type) {
   this.curve = DSTU4145._getCurve(curve_type);
 
   // Curve rand - hack to properly implement random
   this._enableNormalRand();
 }
+
 
 DSTU4145.prototype._enableNormalRand = function () {
   UA_ECC_LIB.Curve.prototype.rand = function () {
@@ -146,7 +143,7 @@ DSTU4145.prototype.generateKeyPair = function (privScalarHex) {
   };
 };
 
-DSTU4145.reverseBuffer = function (buffer) {
+DSTU4145._reverseBuffer = function (buffer) {
   var arr = [];
   var len = buffer.length;
   var index;
@@ -157,18 +154,9 @@ DSTU4145.reverseBuffer = function (buffer) {
   return new Buffer(arr);
 };
 
-DSTU4145.prototype.addASNLenPrefix = function (dataHex) {
-  var lenHex = (dataHex.length / 2);
-  lenHex = lenHex.toString(16);
-  if (lenHex.length === 1) {
-    return "0" + lenHex + dataHex;
-  }
-  return lenHex + dataHex;
-};
-
 DSTU4145.prototype.getKeyBytes = function () {
   return Math.floor((this.curve.m + 7) / 8);
-}
+};
 
 DSTU4145.prototype._convertASNSignatureParam = function (signParam) {
   // add leading zeros
@@ -186,7 +174,7 @@ DSTU4145.prototype._convertASNSignatureParam = function (signParam) {
     hexParam = "00" + hexParam; // add one byte prefix for negative number 
   }
   return "02" + this.addASNLenPrefix(hexParam);
-}
+};
 
 DSTU4145._addzero = function (u8) {
   var ret = [],
@@ -200,8 +188,10 @@ DSTU4145._addzero = function (u8) {
 };
 
 DSTU4145.prototype._convertHash = function (hashHex) {
+  if (! /^([0-9A-Fa-f][0-9A-Fa-f])+$/.test(hashHex))
+    throw new DSTU4145Exception("hash is not a hex string");
+
   var hash = new Buffer(hashHex, "hex");
-  if (hash.length === 0) throw new DSTU4145Exception("hash is not a hex string");
   hash = new UA_ECC_LIB.Field(DSTU4145._addzero(hash), 'buf8', this.curve);
   var curveBits = this.curve.m;
   var xbit = hash.bitLength();
@@ -210,23 +200,23 @@ DSTU4145.prototype._convertHash = function (hashHex) {
     hash = hash.clearBit(xbit - 1);
     xbit = hash.bitLength();
   }
-  return DSTU4145.reverseBuffer(hash.buf8());
+  return DSTU4145._reverseBuffer(hash.buf8());
 };
 
 DSTU4145.prototype.encodeSignature = function (rHex, sHex) {
   var r = new Buffer(rHex, 'hex');
   var s = new Buffer(sHex, 'hex');
   return "30" + this.addASNLenPrefix(this.convertASNSignatureParam(r) + this.convertASNSignatureParam(s));
-}
+};
 
 DSTU4145.prototype.fixedSign = function (privKey, hashHex, randHex) {
   this._enableFixedRand(randHex);
   // reverse hash - assuming hash test vector is already reversed as in formal Ukrainian test vectors
-  var reversedHash = DSTU4145.reverseBuffer(new Buffer(hashHex, 'hex'));
-  var res = this.sign(privKey, reversedHash);
+  var reversedHash = DSTU4145._reverseBuffer(new Buffer(hashHex, 'hex'));
+  var res = this.sign(privKey, reversedHash.toString('hex'));
   this._enableNormalRand();
   return res;
-}
+};
 
 DSTU4145.prototype.sign = function (privKey, hashHex) {
   if (privKey.type !== "Priv") {

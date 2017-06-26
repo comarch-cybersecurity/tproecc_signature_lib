@@ -4,18 +4,20 @@
   "description": "Elliptic curves library supporting p256 and DSTU4145",
   "main": "dstu4145test.js",
   "dependencies": {
-    "get-random-values": "^1.2.0",
+    "brorand": "latest",
+    "elliptic": "^6.4.0",
+    "get-random-values": "latest",
     "jkurwa": "0.4.30",
-    "tproecc_digest_lib": "^1.0.4"
+    "tproecc_digest_lib": "latest"
   },
   "devDependencies": {},
   "scripts": {
     "test": "node dstu4145test.js",
     "start": "node tproecc_simulation_server.js"
   },
-  "repository" :
-  { "type" : "git"
-  , "url" : "https://github.com/comarch-cybersecurity/tproecc_signature_lib"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/comarch-cybersecurity/tproecc_signature_lib"
   },
   "author": "Comarch Technologies",
   "license": "Commercial"

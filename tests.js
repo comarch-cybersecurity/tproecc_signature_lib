@@ -50,12 +50,5 @@ testDecodeSignature307();
 testDecodeSignature431();
 
 
-try {
+
     dstu4145test.testAll();
-}
-catch (e) {
-    if (e.name == "DSTU4145Exception")
-        console.log(e.name);
-    else
-        throw e;
-}

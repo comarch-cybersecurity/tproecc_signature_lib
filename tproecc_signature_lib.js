@@ -5,6 +5,7 @@ var dstu4145_lib = require('./dstu4145ECC/dstu4145');
 var asn1_lib = require('./asn1EncDec/asn1encdec');
 var digest_lib = require('tproecc_digest_lib/tproecc_digest_lib');
 var elliptic_lib = require('elliptic').ec;
+var brorand_lib = require('brorand');
 
 
 function TProEccSignatureException(message, stack) {
@@ -24,6 +25,11 @@ function TProEccSignature() {}
 TProEccSignature._DSTU4145_CURVES = ["DSTU4145_233", "DSTU4145_307", "DSTU4145_431"];
 TProEccSignature._NIST_CURVES = ["NIST_P256"];
 TProEccSignature._NIST_CURVES_MAPPING = ["p256"];
+
+
+TProEccSignature._isHexNumber = function (str) {
+    return /^([0-9A-Fa-f][0-9A-Fa-f])+$/.test(str);
+};
 
 TProEccSignature._checkCurveSupported = function (funName, curveType, supportedCurves) {
     for (var index = 0; index < supportedCurves.length; index++) {
@@ -132,9 +138,14 @@ TProEccSignature._signDigestNIST = function (curveType, digestType, digestValue,
     try {
         //decode ecc public key from hex representation
         var ec = new elliptic_lib(curveName);
-
+        var keyBytes = ec.curve.p.byteLength();
+        var privKeyObj = ec.keyFromPrivate(privateKeyValue, 'hex');
+        var signature = privKeyObj.sign(digestValue, { pers: brorand_lib(200)} );
+        var r = signature.r.toString(16);
+        var s = signature.s.toString(16);
+        return asn1_lib.encodeSignature(keyBytes, r, s);
     } catch (exc) {
-        throw new TProEccSignatureException("verifySignature - " + exc.message, exc.stack);
+        throw new TProEccSignatureException("signDigest - " + exc.message, exc.stack);
     }
 };
 
@@ -192,10 +203,18 @@ TProEccSignature.signDigest = function (curveType, digestType, digestValue, priv
         throw new TProEccSignatureException("signDigest - curveType is undefined");
     if (digestType === undefined)
         throw new TProEccSignatureException("signDigest - digestType is undefined");
+
     if (digestValue === undefined)
         throw new TProEccSignatureException("signDigest - digestValue is undefined");
+    if (!this._isHexNumber(digestValue)) throw new TProEccSignatureException("signDigest - digestValue is not a hex string");
+
     if (privateKeyValue === undefined)
         throw new TProEccSignatureException("signDigest - privateKeyValue is undefined");
+    if (!this._isHexNumber(privateKeyValue)) throw new TProEccSignatureException("signDigest - privateKeyValue is not a hex string");
+
+    var digestObj = new digest_lib();
+    if (!digestObj.isDigestSupported(digestType))
+        throw new TProEccSignatureException("signDigest - unsupported digest type:" + digestType);
 
     // TODO sprawdzenie czy digestType koresponduje z długością
 
@@ -210,14 +229,21 @@ TProEccSignature.signDigest = function (curveType, digestType, digestValue, priv
 TProEccSignature.validatePublicKey = function (curveType, publicKeyValue, popAlg, popInput, popResult) {
     if (curveType === undefined)
         throw new TProEccSignatureException("validatePublicKey - curveType is undefined");
+
     if (publicKeyValue === undefined)
         throw new TProEccSignatureException("validatePublicKey - keyValue is undefined");
+    if (!this._isHexNumber(publicKeyValue)) throw new TProEccSignatureException("validatePublicKey - publicKeyValue is not a hex string");
+
     if (popAlg === undefined)
         throw new TProEccSignatureException("validatePublicKey - popAlg is undefined");
+
     if (popInput === undefined)
         throw new TProEccSignatureException("validatePublicKey - popInput is undefined");
+    if (!this._isHexNumber(popInput)) throw new TProEccSignatureException("validatePublicKey - popInput is not a hex string");
+
     if (popResult === undefined)
         throw new TProEccSignatureException("validatePublicKey - popResult is undefined");
+    if (!this._isHexNumber(popResult)) throw new TProEccSignatureException("validatePublicKey - popResult is not a hex string");
 
     if (curveType.startsWith("DSTU4145"))
         this._validatePublicKeyDSTU(curveType, publicKeyValue, popAlg, popInput, popResult);
@@ -241,12 +267,18 @@ TProEccSignature.calculateDigest = function (digestType, message) {
 TProEccSignature.verifySignature = function (digestValue, curveType, publicKeyValue, signatureValue) {
     if (digestValue === undefined)
         throw new TProEccSignatureException("verifySignature - digestValue is undefined");
+    if (!this._isHexNumber(digestValue)) throw new TProEccSignatureException("verifySignature - digestValue is not a hex string");
+
+
     if (curveType === undefined)
         throw new TProEccSignatureException("verifySignature - curveType is undefined");
     if (publicKeyValue === undefined)
         throw new TProEccSignatureException("verifySignature - publicKeyValue is undefined");
+    if (!this._isHexNumber(publicKeyValue)) throw new TProEccSignatureException("verifySignature - publicKeyValue is not a hex string");
+
     if (signatureValue === undefined)
         throw new TProEccSignatureException("verifySignature - signatureValue is undefined");
+    if (!this._isHexNumber(signatureValue)) throw new TProEccSignatureException("verifySignature - signatureValue is not a hex string");
 
     if (curveType.startsWith("DSTU4145"))
         return this._verifySignatureDSTU(digestValue, curveType, publicKeyValue, signatureValue);
@@ -255,8 +287,6 @@ TProEccSignature.verifySignature = function (digestValue, curveType, publicKeyVa
         return this._verifySignatureNIST(digestValue, curveType, publicKeyValue, signatureValue);
     else
         throw new TProEccSignatureException("verifySignature - curve type not supported:" + curveType);
-
-
 };
 
 module.exports = TProEccSignature;
