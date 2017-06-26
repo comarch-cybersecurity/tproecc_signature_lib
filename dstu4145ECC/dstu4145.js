@@ -18,13 +18,13 @@ DSTU4145Exception.prototype.constructor = DSTU4145Exception;
 
 
 function DSTU4145(curve_type) {
-  this.curve = DSTU4145.getCurve(curve_type);
+  this.curve = DSTU4145._getCurve(curve_type);
 
   // Curve rand - hack to properly implement random
-  this.enableNormalRand();
+  this._enableNormalRand();
 }
 
-DSTU4145.prototype.enableNormalRand = function () {
+DSTU4145.prototype._enableNormalRand = function () {
   UA_ECC_LIB.Curve.prototype.rand = function () {
     var bits, words, ret, rand8;
     var getRandomValues = require('get-random-values');
@@ -42,7 +42,7 @@ DSTU4145.prototype.enableNormalRand = function () {
   };
 };
 
-DSTU4145.prototype.compareFieldNumbers = function (fieldNum1, fieldNum2) {
+DSTU4145.prototype._compareFieldNumbers = function (fieldNum1, fieldNum2) {
   var b1 = fieldNum1.bytes;
   var b2 = fieldNum2.bytes;
 
@@ -59,7 +59,7 @@ DSTU4145.prototype.compareFieldNumbers = function (fieldNum1, fieldNum2) {
   return 0;
 };
 
-DSTU4145.prototype.enableFixedRand = function (randHex) {
+DSTU4145.prototype._enableFixedRand = function (randHex) {
   var ret = new UA_ECC_LIB.Field(randHex, 'hex', this.curve);
 
   var curveBits = this.curve.m;
@@ -74,7 +74,7 @@ DSTU4145.prototype.enableFixedRand = function (randHex) {
   };
 };
 
-DSTU4145.getCurve = function (curve_name) {
+DSTU4145._getCurve = function (curve_name) {
   var curve_def = UA_CURVES[curve_name];
   if (curve_def === undefined) {
     throw new Error("Curve with such name was not defined");
@@ -110,11 +110,11 @@ DSTU4145.prototype.encodePrivateKey = function (privKey) {
   return new Buffer(privKey.d.truncate_buf8()).toString('hex');
 };
 
-DSTU4145.prototype.checkPrivateKey = function (privFieldNumber) {
+DSTU4145.prototype._checkPrivateKey = function (privFieldNumber) {
   if (privFieldNumber.length > this.curve.order.length) {
     return false;
   }
-  var result = this.compareFieldNumbers(this.curve.order, privFieldNumber);
+  var result = this._compareFieldNumbers(this.curve.order, privFieldNumber);
   if (result <= 0) {
     return false;
   }
@@ -127,13 +127,13 @@ DSTU4145.prototype.generateKeyPair = function (privScalarHex) {
   if (typeof privScalarHex === 'undefined') {
     privFieldNumber = this.curve.keygen().d;
     do {
-      privKeyCheck = this.checkPrivateKey(privFieldNumber);
+      privKeyCheck = this._checkPrivateKey(privFieldNumber);
       privFieldNumber = privFieldNumber.shiftRight(1);
     } while (!privKeyCheck);
   } else {
     // check private key size
     privFieldNumber = new UA_ECC_LIB.Field(privScalarHex, 'hex', this.curve);
-    if (!this.checkPrivateKey(privFieldNumber)) {
+    if (!this._checkPrivateKey(privFieldNumber)) {
       throw new Error("private key > curve.order");
     }
   }
@@ -170,7 +170,7 @@ DSTU4145.prototype.getKeyBytes = function () {
   return Math.floor((this.curve.m + 7) / 8);
 }
 
-DSTU4145.prototype.convertASNSignatureParam = function (signParam) {
+DSTU4145.prototype._convertASNSignatureParam = function (signParam) {
   // add leading zeros
 
   var expectedLen = (this.curve.m + 7) / 8;
@@ -188,7 +188,7 @@ DSTU4145.prototype.convertASNSignatureParam = function (signParam) {
   return "02" + this.addASNLenPrefix(hexParam);
 }
 
-DSTU4145.addzero = function (u8) {
+DSTU4145._addzero = function (u8) {
   var ret = [],
     i;
   for (i = 0; i < u8.length; i++) {
@@ -199,10 +199,10 @@ DSTU4145.addzero = function (u8) {
   return ret;
 };
 
-DSTU4145.prototype.convertHash = function (hashHex) {
+DSTU4145.prototype._convertHash = function (hashHex) {
   var hash = new Buffer(hashHex, "hex");
   if (hash.length === 0) throw new DSTU4145Exception("hash is not a hex string");
-  hash = new UA_ECC_LIB.Field(DSTU4145.addzero(hash), 'buf8', this.curve);
+  hash = new UA_ECC_LIB.Field(DSTU4145._addzero(hash), 'buf8', this.curve);
   var curveBits = this.curve.m;
   var xbit = hash.bitLength();
 
@@ -220,11 +220,11 @@ DSTU4145.prototype.encodeSignature = function (rHex, sHex) {
 }
 
 DSTU4145.prototype.fixedSign = function (privKey, hashHex, randHex) {
-  this.enableFixedRand(randHex);
+  this._enableFixedRand(randHex);
   // reverse hash - assuming hash test vector is already reversed as in formal Ukrainian test vectors
   var reversedHash = DSTU4145.reverseBuffer(new Buffer(hashHex, 'hex'));
   var res = this.sign(privKey, reversedHash);
-  this.enableNormalRand();
+  this._enableNormalRand();
   return res;
 }
 
@@ -232,7 +232,7 @@ DSTU4145.prototype.sign = function (privKey, hashHex) {
   if (privKey.type !== "Priv") {
     throw new Error("private key object expected");
   }
-  var res = privKey.sign(this.convertHash(hashHex));
+  var res = privKey.sign(this._convertHash(hashHex));
   var s = new Buffer(res.s.truncate_buf8()).toString('hex');
   var r = new Buffer(res.r.truncate_buf8()).toString('hex');
   return {
@@ -240,53 +240,6 @@ DSTU4145.prototype.sign = function (privKey, hashHex) {
     s: s
   };
 };
-
-DSTU4145.prototype.decodeSignature = function (encodedSignatureHex) {
-  var signParams = {};
-
-  var signature = new Buffer(encodedSignatureHex, "hex");
-  if (signature.length === 0) throw new DSTU4145Exception("decodeSignature - encodedSignatureHex is not hex string");
-
-  var startOffset = 0;
-  if (signature[startOffset++] != 0x30) throw new DSTU4145Exception("decodeSignature - invalid asn prefix - expected 0x30");
-  var signLen = signature[startOffset++];
-  if (signLen != signature.length - 2)
-    throw new DSTU4145Exception("decodeSignature - asn len differs from actual len");
-  var keyBytes = Math.floor((this.curve.m + 7) / 8);
-
-  var minLen = keyBytes * 2 + 4;
-  var maxLen = minLen + 2;
-
-  if (signLen > maxLen || signLen < minLen)
-    throw new DSTU4145Exception("decodeSignature - invalid size - found:" + signLen + " expected:" + minLen);
-
-  for (var index = 0; index < 2; index++) {
-    if (signature[startOffset] !== 0x02)
-      throw new DSTU4145Exception("invalid asn integer prefix - expected 0x02 at location:" + startOffset);
-
-    var len = signature[++startOffset];
-    if (len < keyBytes || len > keyBytes + 1)
-      throw new DSTU4145Exception("decodeSignature - invalid asn len of integer at:" + startOffset);
-
-    startOffset++;
-    var number = signature.slice(startOffset, startOffset + len);
-    startOffset += len;
-
-    if (index === 0) signParams.r = number;
-    else
-      signParams.s = number;
-
-  }
-  return signParams;
-}
-
-DSTU4145.prototype.verifySignature = function (pubKey, hashHex, signatureHex) {
-  if (pubKey.type !== "Pub") {
-    throw new Error("verifySign - public key object expected");
-  }
-  var signature = this.decodeSignature(signatureHex);
-  return pubKey.verify(new Buffer(hashHex, "hex"), signature);
-}
 
 DSTU4145.prototype.verifyHexSignRS = function (pubKey, hashHex, signatureRHex, signatureSHex) {
   if (pubKey.type !== "Pub") {
