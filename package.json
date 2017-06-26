@@ -1,6 +1,6 @@
 {
   "name": "tproecc_signature_library",
-  "version": "0.0.9",
+  "version": "1.0.0",
   "description": "Elliptic curves library supporting p256 and DSTU4145",
   "main": "dstu4145test.js",
   "dependencies": {
